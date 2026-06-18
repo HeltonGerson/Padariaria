@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Dados reais
+principal/banco_dados.json
+
+# Backups
+*.bak
+*.old
