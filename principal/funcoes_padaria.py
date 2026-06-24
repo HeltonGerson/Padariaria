@@ -72,7 +72,7 @@ def ler_float(mensagem, minimo=None, cancelavel=False):
         if cancelavel and entrada.strip() == "":
             raise Cancelado()
 
-        # Se passar, troca vírugla por ponto. Checa se é >= mínimo e se é float.
+        # Se passar, troca vírugla por ponto (se for o caso). Checa se é >= mínimo e se é float.
         try:
             valor = float(entrada.replace(",", "."))  # aceita vírgula decimal
             if minimo is not None and valor < minimo:
@@ -287,6 +287,11 @@ def _agir_sobre(dicionario, id_produto):
         return False
 
     # A depender da escolha do usuário, executa uma dessas coisa ai de baixo
+    # A função _agir_sobre é executada após todo o processamento da função buscar.
+    # Isso significa, basicamentente, que não precisamos validar os dados que chegam a ela pois
+    # eles já passarm por este processo antes.
+    # Então as funções "_cores" servem simplemente para executar a tarefa necessária,
+    # sem precisar validar ou tratar nada antes.
     acoes = {
         1: _alterar_nome_core,
         2: _alterar_preco_core,
@@ -314,10 +319,13 @@ def _buscar_nome(dicionario, nome_busca):
 
 
 # Irei estar pulanddo esta parte porque são simplemente as operações de _agir_sobre
-# Funções _cores assumem que os valores já estão validades e agem diretamente sobre eles, mutando dicionario (e qualquer outra oisa).
+
+
+# Funções _cores assumem que os valores já estão validades e agem diretamente sobre eles, mutando dicionario (e qualquer outra oisa que atuem sobre).
 # Neste caso, funções cores são apenas para não repetir a lógica dentro de uma função.
-#
-# Tudo o que tiver "_core" no nome, saiba que ta mudando algo.
+
+
+# Tudo o que tiver "_core" no nome, saiba que ta mudando algo e não validando, qualquer coisa que chamar ou retornar uma "_core"
 def _alterar_nome_core(dicionario, id_produto):
     """Núcleo de alteração de nome: recebe o ID direto, sem ler do usuário."""
     print(f"\nProduto atual: {dicionario[id_produto]}")
@@ -371,6 +379,7 @@ def alterar(dicionario, seq):
     imprimir_linha("2. Alterar Preço")
     imprimir_rodape()
 
+    # Recebee um input do usuário
     opcao = ler_int("\nO que deseja alterar? ", cancelavel=True)
     print("-" * LARGURA)
 
@@ -379,9 +388,14 @@ def alterar(dicionario, seq):
         2: alterar_preco,
     }
 
+    # Executa a opção
     acao = opcoes.get(opcao)
+
+    # Se a ação foi executada com sucesso e não está vazia, simplemente retorna o o resultado dela
     if acao:
         return acao(dicionario)
+
+    # Se não, a única razão plausível é que não foi escolhido uma opção válida.
     print("\n[Erro]: Opção inválida!")
     return False
 
@@ -389,6 +403,7 @@ def alterar(dicionario, seq):
 # Controle de Estoque
 def controle_menu(dicionario, seq):
     """Menu de controle de estoque: inserir, subtrair, checar ou definir estoque."""
+    # Basicamente a mesma ideia da função anterior
     imprimir_cabecalho("CONTROLE DE ESTOQUE")
     imprimir_linha("1. Inserir no estoque")
     imprimir_linha("2. Subtrair do estoque")
@@ -407,6 +422,7 @@ def controle_menu(dicionario, seq):
         4: controle_definir,
     }
 
+    # Executa e retonar o resultado da ação
     acao = opcoes.get(opcao)
     if acao:
         return acao(dicionario)
@@ -417,6 +433,7 @@ def controle_menu(dicionario, seq):
 
 
 # Uma observação que não coloquei lá em cima, as funções "_cores" não validam nada, tem que receber pronto e mastigado.
+# (eu do futuro): coloquei sim.
 def _controle_inserir_core(dicionario, id_produto):
     """Núcleo de adição ao estoque: soma uma quantidade ao estoque do produto."""
     quantidade = ler_int(
@@ -494,13 +511,13 @@ def listar_todos(dicionario, seq=None, titulo="LISTA DE PRODUTOS", ordenar_por=N
 
     imprimir_cabecalho(titulo)
 
-    # Se não tiver nenhum produto cadastrado ainda, avisa e sai daqui cedo.
+    # Se não tiver nenhum produto cadastrado ainda, avisa e sai.
     if not dicionario:
         imprimir_linha("Nenhum produto cadastrado no sistema.")
         imprimir_rodape()
         return False
 
-    # Pega os produtos como uma lista de (id, dados) pra podermos ordenar do jeito
+    # Pega os produtos como uma tupla de (id, dados) pra podermos ordenar do jeito
     # que o usuário pediu (por nome, preço, estoque...).
     itens = list(dicionario.items())
     if ordenar_por == "nome":
@@ -509,14 +526,14 @@ def listar_todos(dicionario, seq=None, titulo="LISTA DE PRODUTOS", ordenar_por=N
         itens.sort(key=lambda kv: kv[1]["preco"])
     elif ordenar_por == "estoque":
         itens.sort(key=lambda kv: kv[1]["estoque"])
-    # ordenar_por None (ou "id"): mantém a ordem de cadastro (inserção no dict)
+    # ordenar_por None (ou "id"): mantém a ordem de cadastro
 
     # conta quantos estão com estoque baixo e quantos estão esgotados,
-    # pra poder avisar o usuário lá no finalzinho.
+    # pra poder avisar o usuário lá no final.
     baixos = 0
     zerados = 0
     for id_produto, dados in itens:
-        # Monta a linha bonitinha de cada produto e joga dentro da caixa.
+        # Monta a linha de cada produto e joga dentro da caixa.
         info = (
             f"ID: {id_produto} | {dados['nome']} | "
             f"R$ {dados['preco']:.2f} | Qtd: {dados['estoque']}"
@@ -569,15 +586,14 @@ def estatisticas(dicionario, seq):
 
     imprimir_cabecalho("ESTATÍSTICAS")
 
-    # Se não tiver produto cadastrado, avisa e sai cedo (não tem o que somar).
+    # Se não tiver produto cadastrado, avisa e sai cedo.
     if not dicionario:
         imprimir_linha("Nenhum produto cadastrado.")
         imprimir_rodape()
         return False
 
-    # Aqui a gente soma tudo: quantos produtos existem, quanto de dinheiro tá
-    # parado no estoque (preço × quantidade de cada um), e quantos precisam de
-    # atenção (estoque baixo ou zerado).
+    # Soma tudo: quantos produtos existem, quanto de dinheiro tá -
+    # parado no estoque, e quantos precisam de atenção.
     total = len(dicionario)
     valor_estoque = sum(d["preco"] * d["estoque"] for d in dicionario.values())
     baixos = sum(1 for d in dicionario.values() if 0 < d["estoque"] <= ESTOQUE_BAIXO)
