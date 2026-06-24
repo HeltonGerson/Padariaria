@@ -1,3 +1,8 @@
+"""Ponto de entrada do sistema: carrega os dados e executa o laço de menu principal.
+
+Cada operação devolve True se alterou os dados (para que sejam salvos) e False caso
+contrário. Em Ctrl+C, Ctrl+D ou saída normal, o estado atual sempre é salvo."""
+
 import sys
 
 import funcoes_padaria
@@ -15,7 +20,7 @@ if resultado is None:
     sys.exit(1)
 
 produtos, proximo_id = resultado
-seq = [proximo_id]  # contador mutável threadado pelo dispatch; só cresce
+seq = [proximo_id]
 
 opcoes = {
     "1": funcoes_padaria.inserir,
@@ -45,10 +50,13 @@ while True:
             print("\n[Erro]: opção inválida!")
             input("\nPressione [Enter] para continuar...")
             continue
-    except (EOFError, KeyboardInterrupt):  # Ctrl+D / Ctrl+C / stdin fechado: saída limpa
+    except (
+        EOFError,
+        KeyboardInterrupt,
+    ):
         print()
         break
-    except funcoes_padaria.Cancelado:  # Enter vazio em prompt interno: cancela sem salvar
+    except funcoes_padaria.Cancelado:
         print("\n[Aviso]: operação cancelada.")
         input("\nPressione [Enter] para voltar ao menu principal...")
         continue
@@ -56,4 +64,3 @@ while True:
 funcoes_padaria.limpar_tela()
 banco.salvar_dados(produtos, seq[0])
 print("Dados salvos. Encerrando. Até a próxima.")
-

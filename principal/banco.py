@@ -1,3 +1,5 @@
+"""Persistência dos dados da padaria em arquivo JSON, com gravação atômica e backup .bak."""
+
 import json
 import os
 import re
@@ -7,18 +9,11 @@ import tempfile
 CAMINHO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "banco_dados.json")
 CAMINHO_BAK = CAMINHO + ".bak"
 
-# Casa o campo "preco" no JSON serializado para formatá-lo com 2 casas decimais.
-# Seguro no schema controlado: só `preco` é float (nome é str, estoque e proximo_id são int).
 _PRECO = re.compile(r'("preco":\s*)(-?[0-9eE.+-]+)')
 
 
 def salvar_dados(dicionario, proximo_id):
-    """Grava o banco em schema aninhado: {"proximo_id": n, "produtos": {id: prod}}.
-
-    `preco` é gravado com 2 casas decimais (ex.: 15.00). Escrita atômica: serializa em
-    arquivo temporário no mesmo diretório e troca via os.replace. Antes de trocar,
-    copia o arquivo atual para `.bak` (mantém CAMINHO intacto até o novo estar pronto,
-    sem janela sem arquivo). Round-trip preservado: json.loads lê 15.00 -> float 15.0."""
+    """Salva os produtos e o próximo ID em JSON, de forma atômica, gerando .bak antes."""
     dados = {
         "proximo_id": proximo_id,
         "produtos": {str(chave): valor for chave, valor in dicionario.items()},
@@ -31,13 +26,12 @@ def salvar_dados(dicionario, proximo_id):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
             arquivo.write(texto)
-        # backup do arquivo atual (se existir) antes da troca — não há janela sem CAMINHO
         if os.path.exists(CAMINHO):
             try:
                 shutil.copy2(CAMINHO, CAMINHO_BAK)
             except OSError:
                 pass  # sem backup, mas segue gravando
-        os.replace(tmp, CAMINHO)  # atômico
+        os.replace(tmp, CAMINHO)
     except OSError:
         if os.path.exists(tmp):
             os.remove(tmp)
@@ -45,7 +39,7 @@ def salvar_dados(dicionario, proximo_id):
 
 
 def _parse_pipe(texto):
-    """Legado: converte arquivo pipe-delimitado, pulando linhas inválidas."""
+    """Converte texto no formato legado separado por pipe (id|nome|preco|estoque) em dicionário."""
     dicionario = {}
     for linha in texto.splitlines():
         linha = linha.strip()
@@ -70,8 +64,10 @@ def _parse_pipe(texto):
 
 
 def _parse_texto(texto):
-    """Converte texto (JSON aninhado/flat legado ou pipe-delimitado) em (produtos, proximo_id).
-    Não grava nada — a migração de formato acontece no próximo salvar_dados. None se irrecuperável."""
+    """Converte o texto lido em (produtos, proximo_id).
+
+    Aceita o formato aninhado atual, o JSON legado plano ou o formato pipe.
+    Retorna None se não conseguir interpretar nenhum formato."""
     try:
         dados = json.loads(texto)
     except json.JSONDecodeError:
@@ -107,10 +103,10 @@ def _carregar_arquivo(caminho):
 
 
 def carregar_dados():
-    """Retorna (produtos, proximo_id). Primeiro uso (sem CAMINHO nem .bak) -> ({}, 1).
-    Falha crítica (CAMINHO corrompido e sem .bak utilizável) -> None (preserva o arquivo,
-    não migra, não sobrescreve). Se CAMINHO está corrompido/ausente mas `.bak` é utilizável,
-    recupera do backup (restaura CAMINHO) com um [Aviso]."""
+    """Carrega os produtos do arquivo principal, recuando do .bak se necessário.
+
+    Retorna (produtos, proximo_id). Retorna None apenas em falha crítica
+    (arquivo corrompido sem .bak utilizável), caso em que nada deve ser sobrescrito."""
     parsed = _carregar_arquivo(CAMINHO)
     if parsed is not None:
         return parsed
@@ -119,9 +115,13 @@ def carregar_dados():
     if os.path.exists(CAMINHO_BAK):
         parsed_bak = _carregar_arquivo(CAMINHO_BAK)
         if parsed_bak is not None:
-            print(f"[Aviso]: arquivo principal corrompido ou ausente — usando backup ({os.path.basename(CAMINHO_BAK)}).")
+            print(
+                f"[Aviso]: arquivo principal corrompido ou ausente — usando backup ({os.path.basename(CAMINHO_BAK)})."
+            )
             try:
-                shutil.copy2(CAMINHO_BAK, CAMINHO)  # restaura CAMINHO a partir do backup
+                shutil.copy2(
+                    CAMINHO_BAK, CAMINHO
+                )  # restaura CAMINHO a partir do backup
             except OSError:
                 pass  # ainda assim retorna os dados em memória
             return parsed_bak
@@ -130,5 +130,6 @@ def carregar_dados():
     if not os.path.exists(CAMINHO) and not os.path.exists(CAMINHO_BAK):
         return {}, 1
 
-    # CAMINHO existe mas está corrompido e não há .bak: falha crítica (T2)
+    # CAMINHO existe mas está corrompido e não há .bak: falha crítica
     return None
+
