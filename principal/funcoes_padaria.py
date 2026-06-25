@@ -325,7 +325,7 @@ def _buscar_nome(dicionario, nome_busca):
 # Neste caso, funções cores são apenas para não repetir a lógica dentro de uma função.
 
 
-# Tudo o que tiver "_core" no nome, saiba que ta mudando algo e não validando, qualquer coisa que chamar ou retornar uma "_core"
+# Tudo o que tiver "_core" no nome, saiba que ta mudando algo independentemente de estar validado ou não validando, qualquer coisa que chamar ou retornar uma "_core"
 def _alterar_nome_core(dicionario, id_produto):
     """Núcleo de alteração de nome: recebe o ID direto, sem ler do usuário."""
     print(f"\nProduto atual: {dicionario[id_produto]}")
